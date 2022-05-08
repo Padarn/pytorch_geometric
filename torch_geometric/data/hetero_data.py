@@ -12,6 +12,7 @@ from torch_sparse import SparseTensor
 from torch_geometric.data.data import BaseData, Data, size_repr
 from torch_geometric.data.storage import BaseStorage, EdgeStorage, NodeStorage
 from torch_geometric.typing import EdgeType, NodeType, QueryType
+from torch_geometric.utils import is_undirected
 
 NodeOrEdgeType = Union[NodeType, EdgeType]
 NodeOrEdgeStorage = Union[NodeStorage, EdgeStorage]
@@ -297,6 +298,35 @@ class HeteroData(BaseData):
 
     def debug(self):
         pass  # TODO
+
+    @staticmethod
+    def _rev_key(key: Tuple[str, str, str]) -> Tuple[str, str, str]:
+
+        edge_type = key[1]
+        if edge_type.startswith("rev_"):
+            edge_type = edge_type[4:]
+        else:
+            edge_type = "rev_" + edge_type
+
+        return key[-1], edge_type, key[0]
+
+    def is_undirected(self) -> bool:
+        def hetro_is_undirected(key: Tuple[str, str, str], store: EdgeStorage):
+            if store.is_undirected():
+                return True
+            elif store.is_bipartite():
+                key = self._rev_key(key)
+                reverse_store = self._edge_store_dict.get(key, None)
+                if reverse_store is not None:
+                    return is_undirected(
+                        torch.cat([store.edge_index, reverse_store.edge_index],
+                                  dim=1))
+            return False
+
+        return all([
+            hetro_is_undirected(key, store)
+            for (key, store) in self._edge_store_dict.items()
+        ])
 
     ###########################################################################
 
