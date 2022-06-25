@@ -542,5 +542,6 @@ def deconvert_hetero(nodes):
     for t, node in nodes:
         node_dicts[t].append(node)
     for k, v in node_dicts.items():
-        node_dicts[k] = torch.stack(v)
+        if isinstance(v[0], Tensor):
+            node_dicts[k] = torch.stack(v)
     return node_dicts
