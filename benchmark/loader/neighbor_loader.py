@@ -83,10 +83,10 @@ if __name__ == '__main__':
     add('--device', default='cpu')
     add('--datasets', nargs="+", default=['arxiv', 'products', 'mag'])
     add('--root', default='../../data')
-    add('--batch-sizes', default=[8192, 4096, 2048, 1024, 512])
+    add('--batch-sizes', default=[8192])
     add('--eval-batch-sizes', default=[16384, 8192, 4096, 2048, 1024, 512])
     add('--homo-neighbor_sizes', default=[[10, 5], [15, 10, 5], [20, 15, 10]])
-    add('--hetero-neighbor_sizes', default=[[5], [10], [10, 5]], type=int)
+    add('--hetero-neighbor_sizes', default=[[5]], type=int)
     add('--num-workers', default=0)
     add('--runs', default=3)
 

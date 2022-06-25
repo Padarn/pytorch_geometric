@@ -186,7 +186,25 @@ class NeighborSampler:
         else:
             raise TypeError(f'NeighborLoader found invalid type: {type(data)}')
 
-    def __call__(self, index: Union[List[int], Tensor]):
+    def __call__(self, index: Union[List[Tuple[str, int]], List[int], Tensor]):
+
+        if isinstance(index, list):
+            if isinstance(index[0], tuple):
+                node_dict = deconvert_hetero(index)
+                fn = torch.ops.torch_sparse.hetero_neighbor_sample
+                node_dict, row_dict, col_dict, edge_dict = fn(
+                    self.node_types,
+                    self.edge_types,
+                    self.colptr_dict,
+                    self.row_dict,
+                    node_dict,
+                    self.num_neighbors,
+                    self.num_hops,
+                    self.replace,
+                    self.directed,
+                )
+                return node_dict, row_dict, col_dict, edge_dict, len(index)
+
         if not isinstance(index, torch.LongTensor):
             index = torch.LongTensor(index)
 
@@ -465,7 +483,8 @@ def get_input_nodes(
         assert input_nodes is not None
 
         if isinstance(input_nodes, str):
-            return input_nodes, range(data[input_nodes].num_nodes)
+            return input_nodes, convert_hetero(
+                input_nodes, range(data[input_nodes].num_nodes))
 
         assert isinstance(input_nodes, (list, tuple))
         assert len(input_nodes) == 2
@@ -473,8 +492,9 @@ def get_input_nodes(
 
         node_type, input_nodes = input_nodes
         if input_nodes is None:
-            return input_nodes[0], range(data[input_nodes[0]].num_nodes)
-        return node_type, to_index(input_nodes)
+            return input_nodes[0], convert_hetero(
+                input_nodes[0], range(data[input_nodes[0]].num_nodes))
+        return node_type, convert_hetero(node_type, to_index(input_nodes))
 
     else:  # Tuple[FeatureStore, GraphStore]
         # NOTE FeatureStore and GraphStore are treated as separate
@@ -511,3 +531,16 @@ def get_input_nodes(
             num_nodes = feature_store.get_tensor_size(input_nodes)[0]
             return node_type, range(num_nodes)
         return node_type, input_nodes.index
+
+
+def convert_hetero(node_type, index):
+    return [(node_type, i) for i in index]
+
+
+def deconvert_hetero(nodes):
+    node_dicts = defaultdict(list)
+    for t, node in nodes:
+        node_dicts[t].append(node)
+    for k, v in node_dicts.items():
+        node_dicts[k] = torch.stack(v)
+    return node_dicts
