@@ -1,3 +1,4 @@
+from collections import defaultdict
 from collections.abc import Sequence
 from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
@@ -511,3 +512,20 @@ def get_input_nodes(
             num_nodes = feature_store.get_tensor_size(input_nodes)[0]
             return node_type, range(num_nodes)
         return node_type, input_nodes.index
+
+
+HeteroNodeList = List[Tuple[str, Tensor]]
+
+
+def convert_hetero(node_type: str, index: Tensor) -> HeteroNodeList:
+    return [(node_type, i) for i in index]
+
+
+def deconvert_hetero(node_list: HeteroNodeList) -> Dict[str, Tensor]:
+    node_dicts = defaultdict(list)
+    for t, node in node_list:
+        node_dicts[t].append(node)
+    for k, v in node_dicts.items():
+        if isinstance(v[0], Tensor):
+            node_dicts[k] = torch.stack(v)
+    return node_dicts
